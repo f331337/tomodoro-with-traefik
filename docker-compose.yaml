@@ -1,0 +1,26 @@
+services:
+  tomodoro:
+    restart: unless-stopped
+    build:
+      context: ./tomodoro
+    networks:
+      - default
+      - traefik-public
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.constraint-label=traefik-public
+
+      # internal container port
+      - traefik.http.services.${STACK_NAME?Variable not set}-tomodoro.loadbalancer.server.port=80
+
+      # HTTP (redirect -> HTTPS)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-tomodoro-http.rule=Host(`pomo.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-tomodoro-http.entrypoints=http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-tomodoro-http.middlewares=https-redirect
+
+      # HTTPS
+      - traefik.http.routers.${STACK_NAME?Variable not set}-tomodoro-https.rule=Host(`pomo.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-tomodoro-https.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-tomodoro-https.tls=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-tomodoro-https.tls.certresolver=le
