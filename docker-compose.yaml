@@ -1,8 +1,7 @@
 services:
   tomodoro:
     restart: unless-stopped
-    build:
-      context: ./tomodoro
+    image: thehumananimal/tomodoro:1.0
     networks:
       - default
       - traefik-public

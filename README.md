@@ -46,3 +46,7 @@ Icons from [Material Icons](https://developers.google.com/fonts/docs/material_ic
 
 ## License
 [MIT](LICENSE.md)
+
+
+# build and push
+docker build --platform linux/amd64,linux/arm64 --push  -t thehumananimal/tomodoro:1.0 .
