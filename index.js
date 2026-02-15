@@ -64,12 +64,29 @@ let roundInfo = {
 	running: false,
 };
 
+let autoStartNext = false;
+let autoStartSelect = document.getElementById("autostart-select");
+
+function setAutoStartNext(value) {
+	autoStartNext = value === "enabled";
+	autoStartSelect.value = value;
+	localStorage.setItem("pomo-autostart-next", value);
+}
+
+if (localStorage.getItem("pomo-autostart-next")) {
+	setAutoStartNext(localStorage.getItem("pomo-autostart-next"));
+}
+
+autoStartSelect.addEventListener("change", function () {
+	setAutoStartNext(this.value);
+});
+
 //#region Time
 
 function setTime() {
 	let seconds = config[roundInfo.current] - roundInfo.t;
 	if (seconds < 0) {
-		nextRound();
+		handleRoundComplete();
 		return;
 	}
 	let timestr =
@@ -88,14 +105,34 @@ timerWorker.addEventListener("message", (e) => {
 	roundInfo.t = e.data.t;
 	setTime();
 	if (!e.data.running) {
-		timer.style.setProperty("--progress", "0");
-		nextRound();
+		handleRoundComplete();
 	}
 });
 
 //#endregion
 
 //#region Timer Actions
+
+function setRunningState(isRunning) {
+	roundInfo.running = isRunning;
+	if (isRunning) {
+		pauseplaybtn.title = "Pause Timer";
+		pauseplaybtn.className = "playing";
+	} else {
+		pauseplaybtn.title = "Start Timer";
+		pauseplaybtn.className = "paused";
+	}
+}
+
+function handleRoundComplete() {
+	timer.style.setProperty("--progress", "0");
+	const shouldAutoStart = autoStartNext && roundInfo.running;
+	setRunningState(shouldAutoStart);
+	nextRound();
+	if (!shouldAutoStart) {
+		timerWorker.postMessage({ type: "stop" });
+	}
+}
 
 function nextRound() {
 	let finished = fullname[roundInfo.current];
@@ -146,9 +183,7 @@ function pauseplay() {
 			fadeOut();
 		}
 		timerWorker.postMessage({ type: "stop" });
-		roundInfo.running = false;
-		pauseplaybtn.title = "Start Timer";
-		pauseplaybtn.className = "paused";
+		setRunningState(false);
 	} else {
 		if (roundInfo.current === "focus" && audioType === "noise") {
 			fadeIn();
@@ -158,9 +193,7 @@ function pauseplay() {
 			t: roundInfo.t,
 			maxDuration: config[roundInfo.current],
 		});
-		roundInfo.running = true;
-		pauseplaybtn.title = "Pause Timer";
-		pauseplaybtn.className = "playing";
+		setRunningState(true);
 	}
 }
 
@@ -1567,7 +1600,7 @@ function loop() {
 	ctx.textAlign = "center";
 	let seconds = config[roundInfo.current] - roundInfo.t;
 	if (seconds < 0) {
-		nextRound();
+		handleRoundComplete();
 		return;
 	}
 	let timestr =
