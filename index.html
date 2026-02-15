@@ -189,6 +189,18 @@
 						If enabled, white noise will be played during focus sessions. Make sure that your browser allows
 						sound from this site.
 					</div>
+					<div class="setting">
+						<label for="beep-select">Round Complete Sound:</label>
+						<select name="beep" id="beep-select" title="Round Complete Sound">
+							<option value="enabled" selected>Enabled</option>
+							<option value="disabled">Disabled</option>
+						</select>
+						<div class="inline-control">
+							<label for="beep-volume">Volume:</label>
+							<input type="range" id="beep-volume" min="0" max="100" value="70" />
+							<span id="beep-volume-value" class="volume-value">70</span>
+						</div>
+					</div>
 				</section>
 				<section class="section">
 					<h2>PIP Mode</h2>

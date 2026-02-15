@@ -429,6 +429,22 @@ h3 {
 	cursor: pointer;
 }
 
+.setting .inline-control {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 8px;
+	flex-wrap: wrap;
+}
+
+.setting input[type="range"] {
+	accent-color: var(--coloraccent);
+}
+
+.setting .volume-value {
+	min-width: 2ch;
+}
+
 
 #colors {
 	display: flex;

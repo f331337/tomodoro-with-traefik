@@ -128,13 +128,14 @@ function handleRoundComplete() {
 	timer.style.setProperty("--progress", "0");
 	const shouldAutoStart = autoStartNext && roundInfo.running;
 	setRunningState(shouldAutoStart);
-	nextRound();
+	nextRound({ playSound: true });
 	if (!shouldAutoStart) {
 		timerWorker.postMessage({ type: "stop" });
 	}
 }
 
-function nextRound() {
+function nextRound(options = {}) {
+	const { playSound = false } = options;
 	let finished = fullname[roundInfo.current];
 	let body = "Begin ";
 	if (roundInfo.current === "focus") {
@@ -169,6 +170,9 @@ function nextRound() {
 			maxDuration: config[roundInfo.current],
 		});
 	}
+	if (playSound) {
+		playBeep();
+	}
 	notify(`${finished} Complete`, body);
 }
 
@@ -197,9 +201,13 @@ function pauseplay() {
 	}
 }
 
-pauseplaybtn.addEventListener("click", pauseplay);
+pauseplaybtn.addEventListener("click", () => {
+	ensureAudioContext();
+	pauseplay();
+});
 
 nextbtn.addEventListener("click", () => {
+	ensureAudioContext();
 	nextRound();
 });
 
@@ -295,6 +303,33 @@ setup();
 
 //#region Audio
 
+let beepEnabled = true;
+let beepVolume = 70;
+
+let audioCtx;
+let noiseSource;
+let gain;
+let noiseTimeout;
+
+let isWhiteNoiseRunning = false;
+let isFadingOut = false;
+
+function ensureAudioContext() {
+	if (!audioCtx) {
+		audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+	}
+	if (audioCtx.state === "suspended") {
+		audioCtx.resume();
+	}
+}
+
+function unlockAudio() {
+	ensureAudioContext();
+}
+
+document.addEventListener("pointerdown", unlockAudio, { once: true });
+document.addEventListener("keydown", unlockAudio, { once: true });
+
 function volumeSliderDisplay() {
 	if (audioType === "noise") {
 		volumeContainer.classList.remove("disabled");
@@ -306,6 +341,9 @@ function volumeSliderDisplay() {
 }
 
 let audioSelect = document.getElementById("audio-select");
+let beepSelect = document.getElementById("beep-select");
+let beepVolumeSlider = document.getElementById("beep-volume");
+let beepVolumeValue = document.getElementById("beep-volume-value");
 if (localStorage.getItem("pomo-audio-type")) {
 	let audioTypeL = localStorage.getItem("pomo-audio-type");
 	if (audioTypes.includes(audioTypeL)) {
@@ -320,15 +358,19 @@ if (localStorage.getItem("pomo-audio-volume")) {
 	volume = parseFloat(localStorage.getItem("pomo-audio-volume")) || 80;
 }
 
+if (localStorage.getItem("pomo-beep-enabled")) {
+	beepEnabled = localStorage.getItem("pomo-beep-enabled") === "enabled";
+}
+
+if (localStorage.getItem("pomo-beep-volume")) {
+	beepVolume = parseFloat(localStorage.getItem("pomo-beep-volume")) || 70;
+}
+
 volumeSliderDisplay();
 
-let audioCtx;
-let noiseSource;
-let gain;
-let noiseTimeout;
-
-let isWhiteNoiseRunning = false;
-let isFadingOut = false;
+beepSelect.value = beepEnabled ? "enabled" : "disabled";
+beepVolumeSlider.value = beepVolume;
+beepVolumeValue.textContent = beepVolume;
 
 audioSelect.addEventListener("change", () => {
 	audioType = audioSelect.value;
@@ -343,10 +385,19 @@ audioSelect.addEventListener("change", () => {
 	localStorage.setItem("pomo-audio-type", audioType);
 });
 
+beepSelect.addEventListener("change", function () {
+	beepEnabled = this.value === "enabled";
+	localStorage.setItem("pomo-beep-enabled", this.value);
+});
+
+beepVolumeSlider.addEventListener("input", () => {
+	beepVolume = parseFloat(beepVolumeSlider.value);
+	beepVolumeValue.textContent = beepVolume;
+	localStorage.setItem("pomo-beep-volume", beepVolume);
+});
+
 function initNoise() {
-	if (!audioCtx) {
-		audioCtx = new AudioContext();
-	}
+	ensureAudioContext();
 	const bufferSize = audioCtx.sampleRate * 3;
 	const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
 	let data = buffer.getChannelData(0);
@@ -407,6 +458,25 @@ function fadeIn() {
 		gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime);
 		gain.gain.linearRampToValueAtTime(volume / 100, audioCtx.currentTime + 1);
 	}
+}
+
+function playBeep() {
+	if (!beepEnabled) return;
+	ensureAudioContext();
+	if (!audioCtx) return;
+	const now = audioCtx.currentTime;
+	const oscillator = audioCtx.createOscillator();
+	const gainNode = audioCtx.createGain();
+	const volumeGain = (beepVolume / 100) * 0.2;
+	oscillator.type = "square";
+	oscillator.frequency.setValueAtTime(880, now);
+	gainNode.gain.setValueAtTime(0, now);
+	gainNode.gain.linearRampToValueAtTime(volumeGain, now + 0.01);
+	gainNode.gain.linearRampToValueAtTime(0, now + 0.18);
+	oscillator.connect(gainNode);
+	gainNode.connect(audioCtx.destination);
+	oscillator.start(now);
+	oscillator.stop(now + 0.2);
 }
 
 //#endregion
